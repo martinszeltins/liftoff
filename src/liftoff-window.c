@@ -12,12 +12,14 @@ struct _LiftoffWindow
 	GtkEntry            *exec_entry;
 	GtkEntry            *icon_entry;
 	GtkEntry            *categories_entry;
+	GtkEntry            *wmclass_entry;
 	GtkButton           *icon_button;
 	GtkButton           *create_button;
 	GtkTextView         *preview_text;
 	AdwSwitchRow        *startup_switch;
 
 	char                *executable_path;
+	gboolean             wmclass_user_edited;
 };
 
 G_DEFINE_FINAL_TYPE (LiftoffWindow, liftoff_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -40,7 +42,7 @@ update_preview (LiftoffWindow *self)
 {
 	GtkTextBuffer *buffer;
 	GtkTextIter iter;
-	const char *name, *exec, *icon, *categories;
+	const char *name, *exec, *icon, *categories, *wmclass;
 	GtkTextTag *header_tag, *key_tag, *value_tag;
 
 	buffer = gtk_text_view_get_buffer (self->preview_text);
@@ -63,6 +65,7 @@ update_preview (LiftoffWindow *self)
 	exec = gtk_editable_get_text (GTK_EDITABLE (self->exec_entry));
 	icon = gtk_editable_get_text (GTK_EDITABLE (self->icon_entry));
 	categories = gtk_editable_get_text (GTK_EDITABLE (self->categories_entry));
+	wmclass = gtk_editable_get_text (GTK_EDITABLE (self->wmclass_entry));
 
 	/* Insert [Desktop Entry] with header tag */
 	gtk_text_buffer_get_end_iter (buffer, &iter);
@@ -93,6 +96,9 @@ update_preview (LiftoffWindow *self)
 	if (categories && *categories)
 		INSERT_LINE("Categories", categories);
 	
+	if (wmclass && *wmclass)
+		INSERT_LINE("StartupWMClass", wmclass);
+	
 	INSERT_LINE("Terminal", "false");
 
 	#undef INSERT_LINE
@@ -103,6 +109,20 @@ on_entry_changed (GtkEditable *editable,
                   gpointer     user_data)
 {
 	LiftoffWindow *self = LIFTOFF_WINDOW (user_data);
+	
+	/* If name changed and wmclass hasn't been manually edited, update it */
+	if (GTK_EDITABLE (editable) == GTK_EDITABLE (self->name_entry) && !self->wmclass_user_edited)
+	{
+		const char *name = gtk_editable_get_text (GTK_EDITABLE (self->name_entry));
+		gtk_editable_set_text (GTK_EDITABLE (self->wmclass_entry), name);
+	}
+	
+	/* Mark wmclass as user-edited if they change it directly */
+	if (GTK_EDITABLE (editable) == GTK_EDITABLE (self->wmclass_entry))
+	{
+		self->wmclass_user_edited = TRUE;
+	}
+	
 	update_preview (self);
 }
 
@@ -226,7 +246,7 @@ on_create_button_clicked (GtkButton *button,
                           gpointer   user_data)
 {
 	LiftoffWindow *self = LIFTOFF_WINDOW (user_data);
-	const char *name, *exec, *icon, *categories;
+	const char *name, *exec, *icon, *categories, *wmclass;
 	GString *content;
 	char *desktop_dir, *filename, *filepath, *autostart_dir, *autostart_path;
 	char *sanitized_name;
@@ -240,6 +260,7 @@ on_create_button_clicked (GtkButton *button,
 	exec = gtk_editable_get_text (GTK_EDITABLE (self->exec_entry));
 	icon = gtk_editable_get_text (GTK_EDITABLE (self->icon_entry));
 	categories = gtk_editable_get_text (GTK_EDITABLE (self->categories_entry));
+	wmclass = gtk_editable_get_text (GTK_EDITABLE (self->wmclass_entry));
 	run_on_startup = adw_switch_row_get_active (self->startup_switch);
 
 	if (!name || !*name)
@@ -271,14 +292,25 @@ on_create_button_clicked (GtkButton *button,
 	if (categories && *categories)
 		g_string_append_printf (content, "Categories=%s\n", categories);
 	
+	if (wmclass && *wmclass)
+		g_string_append_printf (content, "StartupWMClass=%s\n", wmclass);
+	
 	g_string_append (content, "Terminal=false\n");
 
 	/* Save to ~/.local/share/applications/ */
 	desktop_dir = g_build_filename (g_get_user_data_dir (), "applications", NULL);
 	g_mkdir_with_parents (desktop_dir, 0755);
 
-	/* Create filename from name */
-	sanitized_name = g_strdup (name);
+	/* Create filename from wmclass if provided, otherwise from name */
+	if (wmclass && *wmclass)
+	{
+		sanitized_name = g_strdup (wmclass);
+	}
+	else
+	{
+		sanitized_name = g_strdup (name);
+	}
+	
 	for (i = 0; sanitized_name[i]; i++)
 	{
 		if (!g_ascii_isalnum (sanitized_name[i]) && sanitized_name[i] != '-')
@@ -290,6 +322,8 @@ on_create_button_clicked (GtkButton *button,
 
 	if (g_file_set_contents (filepath, content->str, -1, &error))
 	{
+		GtkApplication *app;
+		
 		/* Make it executable */
 		chmod (filepath, 0755);
 
@@ -307,11 +341,9 @@ on_create_button_clicked (GtkButton *button,
 			g_free (autostart_path);
 		}
 
-		msg = g_strdup_printf (_("Desktop file created successfully at:\n%s"), filepath);
-		alert_dialog = adw_alert_dialog_new (_("Success"), msg);
-		adw_alert_dialog_add_response (ADW_ALERT_DIALOG (alert_dialog), "ok", _("OK"));
-		adw_dialog_present (alert_dialog, GTK_WIDGET (self));
-		g_free (msg);
+		/* Exit the application on success */
+		app = GTK_APPLICATION (gtk_window_get_application (GTK_WINDOW (self)));
+		g_application_quit (G_APPLICATION (app));
 	}
 	else
 	{
@@ -424,6 +456,7 @@ liftoff_window_class_init (LiftoffWindowClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, exec_entry);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, icon_entry);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, categories_entry);
+	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, wmclass_entry);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, icon_button);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, create_button);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, preview_text);
@@ -438,4 +471,7 @@ static void
 liftoff_window_init (LiftoffWindow *self)
 {
 	gtk_widget_init_template (GTK_WIDGET (self));
+	
+	/* Initialize wmclass_user_edited flag */
+	self->wmclass_user_edited = FALSE;
 }

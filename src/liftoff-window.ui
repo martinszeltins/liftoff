@@ -74,10 +74,21 @@
                           </object>
                         </child>
 
+                        <!-- StartupWMClass field -->
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <child>
+                              <object class="AdwEntryRow" id="wmclass_entry">
+                                <property name="title" translatable="yes">Filename / Startup WM Class</property>
+                                <signal name="changed" handler="on_entry_changed" swapped="no"/>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
                         <!-- Icon field -->
                         <child>
                           <object class="AdwPreferencesGroup">
-                            <property name="title" translatable="yes">Icon</property>
                             <child>
                               <object class="GtkBox">
                                 <property name="orientation">horizontal</property>
@@ -105,7 +116,6 @@
                         <!-- Categories field -->
                         <child>
                           <object class="AdwPreferencesGroup">
-                            <property name="description" translatable="yes">Semicolon-separated list (e.g., Utility;Development;)</property>
                             <child>
                               <object class="AdwEntryRow" id="categories_entry">
                                 <property name="title" translatable="yes">Categories</property>
