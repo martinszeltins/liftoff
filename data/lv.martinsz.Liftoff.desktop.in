@@ -1,10 +1,11 @@
 [Desktop Entry]
-Name=liftoff
+Name=Liftoff
+Comment=Create desktop launchers
 Exec=liftoff
 Icon=lv.martinsz.Liftoff
 Terminal=false
 Type=Application
-Categories=Utility;
-Keywords=GTK;
+Categories=GTK;Utility;Settings;
+Keywords=launcher;desktop;shortcut;application;
 StartupNotify=true
 DBusActivatable=true
