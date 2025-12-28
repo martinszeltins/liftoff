@@ -1,3 +1,3 @@
-# liftoff
+# Application Launcher Creator
 
-A description of this project.
+Easily create .desktop application launchers for your Linux desktop environment with Liftoff.
