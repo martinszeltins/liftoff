@@ -60,41 +60,63 @@ static void
 update_preview (LiftoffWindow *self)
 {
 	GtkTextBuffer *buffer;
-	GString *preview;
+	GtkTextIter iter;
 	const char *name, *exec, *icon, *categories;
+	GtkTextTag *header_tag, *key_tag, *value_tag;
 
 	buffer = gtk_text_view_get_buffer (self->preview_text);
-	preview = g_string_new ("");
+	gtk_text_buffer_set_text (buffer, "", -1);
+
+	/* Create text tags for syntax highlighting */
+	header_tag = gtk_text_buffer_create_tag (buffer, NULL,
+	                                          "foreground", "#1c71d8",
+	                                          "weight", PANGO_WEIGHT_BOLD,
+	                                          NULL);
+	key_tag = gtk_text_buffer_create_tag (buffer, NULL,
+	                                       "foreground", "#c061cb",
+	                                       "weight", PANGO_WEIGHT_SEMIBOLD,
+	                                       NULL);
+	value_tag = gtk_text_buffer_create_tag (buffer, NULL,
+	                                         "foreground", "#26a269",
+	                                         NULL);
 
 	name = gtk_editable_get_text (GTK_EDITABLE (self->name_entry));
 	exec = gtk_editable_get_text (GTK_EDITABLE (self->exec_entry));
 	icon = gtk_editable_get_text (GTK_EDITABLE (self->icon_entry));
 	categories = gtk_editable_get_text (GTK_EDITABLE (self->categories_entry));
 
-	g_string_append (preview, "[Desktop Entry]\n");
-	g_string_append (preview, "Type=Application\n");
-	g_string_append (preview, "Version=1.0\n");
+	/* Insert [Desktop Entry] with header tag */
+	gtk_text_buffer_get_end_iter (buffer, &iter);
+	gtk_text_buffer_insert_with_tags (buffer, &iter, "[Desktop Entry]\n", -1, header_tag, NULL);
 
-	if (name && *name)
-		g_string_append_printf (preview, "Name=%s\n", name);
-	else
-		g_string_append (preview, "Name=\n");
+	/* Helper macro to insert key=value lines */
+	#define INSERT_LINE(key, val) do { \
+		gtk_text_buffer_get_end_iter (buffer, &iter); \
+		gtk_text_buffer_insert_with_tags (buffer, &iter, key, -1, key_tag, NULL); \
+		gtk_text_buffer_get_end_iter (buffer, &iter); \
+		gtk_text_buffer_insert (buffer, &iter, "=", -1); \
+		if (val && *val) { \
+			gtk_text_buffer_get_end_iter (buffer, &iter); \
+			gtk_text_buffer_insert_with_tags (buffer, &iter, val, -1, value_tag, NULL); \
+		} \
+		gtk_text_buffer_get_end_iter (buffer, &iter); \
+		gtk_text_buffer_insert (buffer, &iter, "\n", -1); \
+	} while(0)
 
-	if (exec && *exec)
-		g_string_append_printf (preview, "Exec=%s\n", exec);
-	else
-		g_string_append (preview, "Exec=\n");
-
+	INSERT_LINE("Type", "Application");
+	INSERT_LINE("Version", "1.0");
+	INSERT_LINE("Name", name ? name : "");
+	INSERT_LINE("Exec", exec ? exec : "");
+	
 	if (icon && *icon)
-		g_string_append_printf (preview, "Icon=%s\n", icon);
-
+		INSERT_LINE("Icon", icon);
+	
 	if (categories && *categories)
-		g_string_append_printf (preview, "Categories=%s\n", categories);
+		INSERT_LINE("Categories", categories);
+	
+	INSERT_LINE("Terminal", "false");
 
-	g_string_append (preview, "Terminal=false\n");
-
-	gtk_text_buffer_set_text (buffer, preview->str, -1);
-	g_string_free (preview, TRUE);
+	#undef INSERT_LINE
 }
 
 static void
