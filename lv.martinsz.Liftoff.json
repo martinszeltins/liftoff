@@ -33,8 +33,8 @@
                 {
                     "type" : "git",
                     "url" : "https://github.com/martinszeltins/liftoff.git",
-                    "tag" : "1.0.0",
-                    "commit" : "COMMIT_HASH_PLACEHOLDER"
+                    "tag" : "v1.0.0",
+                    "commit" : "bc2dfc05962be4e4377dd71390ba162102e2eae1"
                 }
             ]
         }

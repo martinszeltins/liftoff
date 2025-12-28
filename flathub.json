@@ -1,0 +1,8 @@
+{
+  "finish-args-unnecessary-xdg-data-applications-create-access": {
+    "comment": "Liftoff creates .desktop launcher files in xdg-data/applications as its primary function"
+  },
+  "finish-args-unnecessary-xdg-config-autostart-create-access": {
+    "comment": "Liftoff creates autostart entries when users enable 'run on startup' feature"
+  }
+}
