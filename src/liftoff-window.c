@@ -371,6 +371,18 @@ liftoff_window_finalize (GObject *object)
 }
 
 static void
+liftoff_window_constructed (GObject *object)
+{
+	LiftoffWindow *self = LIFTOFF_WINDOW (object);
+
+	G_OBJECT_CLASS (liftoff_window_parent_class)->constructed (object);
+
+	/* Setup initial state after properties are set */
+	setup_exec_field (self);
+	update_preview (self);
+}
+
+static void
 liftoff_window_class_init (LiftoffWindowClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -379,6 +391,7 @@ liftoff_window_class_init (LiftoffWindowClass *klass)
 	object_class->get_property = liftoff_window_get_property;
 	object_class->set_property = liftoff_window_set_property;
 	object_class->finalize = liftoff_window_finalize;
+	object_class->constructed = liftoff_window_constructed;
 
 	properties [PROP_EXECUTABLE_PATH] =
 		g_param_spec_string ("executable-path",
@@ -407,8 +420,4 @@ static void
 liftoff_window_init (LiftoffWindow *self)
 {
 	gtk_widget_init_template (GTK_WIDGET (self));
-
-	/* Setup initial state */
-	setup_exec_field (self);
-	update_preview (self);
 }
