@@ -34,7 +34,7 @@
                     "type" : "git",
                     "url" : "https://github.com/martinszeltins/liftoff.git",
                     "tag" : "v1.0.0",
-                    "commit" : "71ab54b2b8484e760c2aaca3b48dd026f71bd3ef"
+                    "commit" : "3a7e0b2a49b6545af6550911208cf9702744e648"
                 }
             ]
         }
