@@ -37,6 +37,7 @@ struct _LiftoffWindow
 	GtkButton           *icon_button;
 	GtkButton           *create_button;
 	GtkTextView         *preview_text;
+	AdwSwitchRow        *startup_switch;
 
 	char                *executable_path;
 };
@@ -249,17 +250,19 @@ on_create_button_clicked (GtkButton *button,
 	LiftoffWindow *self = LIFTOFF_WINDOW (user_data);
 	const char *name, *exec, *icon, *categories;
 	GString *content;
-	char *desktop_dir, *filename, *filepath;
+	char *desktop_dir, *filename, *filepath, *autostart_dir, *autostart_path;
 	char *sanitized_name;
 	char *msg;
 	AdwDialog *alert_dialog;
 	GError *error = NULL;
+	gboolean run_on_startup;
 	int i;
 
 	name = gtk_editable_get_text (GTK_EDITABLE (self->name_entry));
 	exec = gtk_editable_get_text (GTK_EDITABLE (self->exec_entry));
 	icon = gtk_editable_get_text (GTK_EDITABLE (self->icon_entry));
 	categories = gtk_editable_get_text (GTK_EDITABLE (self->categories_entry));
+	run_on_startup = adw_switch_row_get_active (self->startup_switch);
 
 	if (!name || !*name)
 	{
@@ -311,6 +314,20 @@ on_create_button_clicked (GtkButton *button,
 	{
 		/* Make it executable */
 		chmod (filepath, 0755);
+
+		/* If run on startup is enabled, also create autostart file */
+		if (run_on_startup)
+		{
+			autostart_dir = g_build_filename (g_get_user_config_dir (), "autostart", NULL);
+			g_mkdir_with_parents (autostart_dir, 0755);
+			autostart_path = g_build_filename (autostart_dir, filename, NULL);
+			
+			g_file_set_contents (autostart_path, content->str, -1, NULL);
+			chmod (autostart_path, 0755);
+			
+			g_free (autostart_dir);
+			g_free (autostart_path);
+		}
 
 		msg = g_strdup_printf (_("Desktop file created successfully at:\n%s"), filepath);
 		alert_dialog = adw_alert_dialog_new (_("Success"), msg);
@@ -432,6 +449,7 @@ liftoff_window_class_init (LiftoffWindowClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, icon_button);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, create_button);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, preview_text);
+	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, startup_switch);
 
 	gtk_widget_class_bind_template_callback (widget_class, on_entry_changed);
 	gtk_widget_class_bind_template_callback (widget_class, on_icon_button_clicked);

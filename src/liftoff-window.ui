@@ -115,6 +115,19 @@
                           </object>
                         </child>
 
+                        <!-- Options -->
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <property name="title" translatable="yes">Options</property>
+                            <child>
+                              <object class="AdwSwitchRow" id="startup_switch">
+                                <property name="title" translatable="yes">Run on Startup</property>
+                                <property name="subtitle" translatable="yes">Launch automatically when you log in</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
                         <!-- Create button -->
                         <child>
                           <object class="GtkButton" id="create_button">
