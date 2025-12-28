@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=liftoff
+Exec=liftoff
+Icon=lv.martinsz.Liftoff
+Terminal=false
+Type=Application
+Categories=Utility;
+Keywords=GTK;
+StartupNotify=true
+DBusActivatable=true

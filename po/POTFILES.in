@@ -1,0 +1,8 @@
+# List of source files containing translatable strings.
+# Please keep this file sorted alphabetically.
+data/lv.martinsz.Liftoff.desktop.in
+data/lv.martinsz.Liftoff.metainfo.xml.in
+data/lv.martinsz.Liftoff.gschema.xml
+src/main.c
+src/liftoff-window.c
+src/liftoff-window.ui
