@@ -4,12 +4,18 @@
   <requires lib="Adw" version="1.0"/>
   <template class="LiftoffWindow" parent="AdwApplicationWindow">
     <property name="title" translatable="yes">Liftoff</property>
-    <property name="default-width">800</property>
-    <property name="default-height">600</property>
+    <property name="default-width">900</property>
+    <property name="default-height">700</property>
     <property name="content">
       <object class="AdwToolbarView">
         <child type="top">
           <object class="AdwHeaderBar">
+            <property name="title-widget">
+              <object class="AdwWindowTitle">
+                <property name="title" translatable="yes">Liftoff</property>
+                <property name="subtitle" translatable="yes">Create Desktop Launchers</property>
+              </object>
+            </property>
             <child type="end">
               <object class="GtkMenuButton">
                 <property name="primary">True</property>
@@ -21,11 +27,213 @@
           </object>
         </child>
         <property name="content">
-          <object class="GtkLabel" id="label">
-            <property name="label" translatable="yes">Hello, World!</property>
-            <style>
-              <class name="title-1"/>
-            </style>
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">0</property>
+            <property name="homogeneous">true</property>
+            
+            <!-- Left side: Input form -->
+            <child>
+              <object class="GtkScrolledWindow">
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+                <property name="child">
+                  <object class="AdwClamp">
+                    <property name="maximum-size">600</property>
+                    <property name="tightening-threshold">400</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">24</property>
+                        <property name="margin-top">24</property>
+                        <property name="margin-bottom">24</property>
+                        <property name="margin-start">24</property>
+                        <property name="margin-end">24</property>
+
+                        <!-- Header -->
+                        <child>
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">6</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Launcher Details 1</property>
+                                <property name="halign">start</property>
+                                <style>
+                                  <class name="title-2"/>
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Fill in the details to create a desktop launcher file</property>
+                                <property name="halign">start</property>
+                                <property name="wrap">true</property>
+                                <style>
+                                  <class name="dim-label"/>
+                                </style>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <!-- Name field -->
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <child>
+                              <object class="AdwEntryRow" id="name_entry">
+                                <property name="title" translatable="yes">Name</property>
+                                <signal name="changed" handler="on_entry_changed" swapped="no"/>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <!-- Exec field -->
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <child>
+                              <object class="AdwEntryRow" id="exec_entry">
+                                <property name="title" translatable="yes">Command</property>
+                                <signal name="changed" handler="on_entry_changed" swapped="no"/>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <!-- Icon field -->
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <property name="title" translatable="yes">Icon</property>
+                            <property name="description" translatable="yes">Choose an icon for your launcher</property>
+                            <child>
+                              <object class="AdwActionRow">
+                                <property name="title" translatable="yes">Icon Path</property>
+                                <property name="activatable-widget">icon_button</property>
+                                <child>
+                                  <object class="GtkEntry" id="icon_entry">
+                                    <property name="hexpand">true</property>
+                                    <property name="placeholder-text" translatable="yes">Select an icon file...</property>
+                                    <signal name="changed" handler="on_entry_changed" swapped="no"/>
+                                  </object>
+                                </child>
+                                <child type="suffix">
+                                  <object class="GtkButton" id="icon_button">
+                                    <property name="icon-name">document-open-symbolic</property>
+                                    <property name="valign">center</property>
+                                    <signal name="clicked" handler="on_icon_button_clicked" swapped="no"/>
+                                    <style>
+                                      <class name="flat"/>
+                                    </style>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <!-- Categories field -->
+                        <child>
+                          <object class="AdwPreferencesGroup">
+                            <property name="description" translatable="yes">Semicolon-separated list (e.g., Utility;Development;)</property>
+                            <child>
+                              <object class="AdwEntryRow" id="categories_entry">
+                                <property name="title" translatable="yes">Categories</property>
+                                <signal name="changed" handler="on_entry_changed" swapped="no"/>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <!-- Create button -->
+                        <child>
+                          <object class="GtkButton" id="create_button">
+                            <property name="label" translatable="yes">Create Launcher</property>
+                            <property name="halign">fill</property>
+                            <signal name="clicked" handler="on_create_button_clicked" swapped="no"/>
+                            <style>
+                              <class name="pill"/>
+                              <class name="suggested-action"/>
+                            </style>
+                          </object>
+                        </child>
+
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </child>
+
+            <!-- Right side: Preview -->
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+                <style>
+                  <class name="background"/>
+                </style>
+                
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="vexpand">true</property>
+                    <property name="child">
+                      <object class="AdwClamp">
+                        <property name="maximum-size">600</property>
+                        <property name="tightening-threshold">400</property>
+                        <property name="child">
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">12</property>
+                            <property name="margin-top">24</property>
+                            <property name="margin-bottom">24</property>
+                            <property name="margin-start">24</property>
+                            <property name="margin-end">24</property>
+
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Preview</property>
+                                <property name="halign">start</property>
+                                <style>
+                                  <class name="title-2"/>
+                                </style>
+                              </object>
+                            </child>
+
+                            <child>
+                              <object class="GtkFrame">
+                                <property name="child">
+                                  <object class="GtkScrolledWindow">
+                                    <property name="vexpand">true</property>
+                                    <property name="height-request">400</property>
+                                    <property name="child">
+                                      <object class="GtkTextView" id="preview_text">
+                                        <property name="editable">false</property>
+                                        <property name="cursor-visible">false</property>
+                                        <property name="monospace">true</property>
+                                        <property name="top-margin">12</property>
+                                        <property name="bottom-margin">12</property>
+                                        <property name="left-margin">12</property>
+                                        <property name="right-margin">12</property>
+                                        <property name="wrap-mode">word</property>
+                                      </object>
+                                    </property>
+                                  </object>
+                                </property>
+                              </object>
+                            </child>
+
+                          </object>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+
+              </object>
+            </child>
+
           </object>
         </property>
       </object>
@@ -33,10 +241,6 @@
   </template>
   <menu id="primary_menu">
     <section>
-      <item>
-        <attribute name="label" translatable="yes">_Preferences</attribute>
-        <attribute name="action">app.preferences</attribute>
-      </item>
       <item>
         <attribute name="label" translatable="yes">_Keyboard Shortcuts</attribute>
         <attribute name="action">app.shortcuts</attribute>

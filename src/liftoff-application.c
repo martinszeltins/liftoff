@@ -28,6 +28,7 @@
 struct _LiftoffApplication
 {
 	AdwApplication parent_instance;
+	char *executable_path;
 };
 
 G_DEFINE_FINAL_TYPE (LiftoffApplication, liftoff_application, ADW_TYPE_APPLICATION)
@@ -40,7 +41,7 @@ liftoff_application_new (const char        *application_id,
 
 	return g_object_new (LIFTOFF_TYPE_APPLICATION,
 	                     "application-id", application_id,
-	                     "flags", flags,
+	                     "flags", flags | G_APPLICATION_HANDLES_COMMAND_LINE,
 	                     "resource-base-path", "/lv/martinsz/Liftoff",
 	                     NULL);
 }
@@ -48,6 +49,7 @@ liftoff_application_new (const char        *application_id,
 static void
 liftoff_application_activate (GApplication *app)
 {
+	LiftoffApplication *self = LIFTOFF_APPLICATION (app);
 	GtkWindow *window;
 
 	g_assert (LIFTOFF_IS_APPLICATION (app));
@@ -57,17 +59,55 @@ liftoff_application_activate (GApplication *app)
 	if (window == NULL)
 		window = g_object_new (LIFTOFF_TYPE_WINDOW,
 		                       "application", app,
+		                       "executable-path", self->executable_path,
 		                       NULL);
 
 	gtk_window_present (window);
 }
 
+static int
+liftoff_application_command_line (GApplication            *app,
+                                   GApplicationCommandLine *cmdline)
+{
+	LiftoffApplication *self = LIFTOFF_APPLICATION (app);
+	gchar **argv;
+	gint argc;
+
+	argv = g_application_command_line_get_arguments (cmdline, &argc);
+
+	if (argc > 1)
+	{
+		g_free (self->executable_path);
+		self->executable_path = g_strdup (argv[1]);
+	}
+
+	g_strfreev (argv);
+
+	g_application_activate (app);
+
+	return 0;
+}
+
+static void
+liftoff_application_finalize (GObject *object)
+{
+	LiftoffApplication *self = LIFTOFF_APPLICATION (object);
+
+	g_free (self->executable_path);
+
+	G_OBJECT_CLASS (liftoff_application_parent_class)->finalize (object);
+}
+
 static void
 liftoff_application_class_init (LiftoffApplicationClass *klass)
 {
+	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	GApplicationClass *app_class = G_APPLICATION_CLASS (klass);
 
+	object_class->finalize = liftoff_application_finalize;
+
 	app_class->activate = liftoff_application_activate;
+	app_class->command_line = liftoff_application_command_line;
 }
 
 static void
