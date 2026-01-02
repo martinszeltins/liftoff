@@ -11,7 +11,8 @@
         "--device=dri",
         "--socket=wayland",
         "--filesystem=xdg-data/applications:create",
-        "--filesystem=xdg-config/autostart:create"
+        "--filesystem=xdg-config/autostart:create",
+        "--filesystem=host:ro"
     ],
     "cleanup" : [
         "/include",
@@ -31,10 +32,8 @@
             "buildsystem" : "meson",
             "sources" : [
                 {
-                    "type" : "git",
-                    "url" : "https://github.com/martinszeltins/liftoff.git",
-                    "tag" : "v1.0.0",
-                    "commit" : "3a7e0b2a49b6545af6550911208cf9702744e648"
+                    "type" : "dir",
+                    "path" : "."
                 }
             ]
         }

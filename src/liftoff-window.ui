@@ -13,7 +13,7 @@
             <property name="title-widget">
               <object class="AdwWindowTitle">
                 <property name="title" translatable="yes">Liftoff</property>
-                <property name="subtitle" translatable="yes">Create Desktop Launchers</property>
+                <property name="subtitle" translatable="yes">v1.1.0 - Create Desktop Launchers</property>
               </object>
             </property>
             <child type="end">

@@ -129,6 +129,10 @@ on_entry_changed (GtkEditable *editable,
 static char *
 detect_interpreter (const char *path)
 {
+	/* Check if path is a directory */
+	if (g_file_test (path, G_FILE_TEST_IS_DIR))
+		return g_strdup ("nautilus");
+	
 	if (g_str_has_suffix (path, ".sh"))
 		return g_strdup ("bash");
 	else if (g_str_has_suffix (path, ".js"))
