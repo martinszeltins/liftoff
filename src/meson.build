@@ -2,6 +2,7 @@ liftoff_sources = [
   'main.c',
   'liftoff-application.c',
   'liftoff-window.c',
+  'liftoff-appimage.c',
 ]
 
 liftoff_deps = [

@@ -12,6 +12,7 @@
         "--socket=wayland",
         "--filesystem=xdg-data/applications:create",
         "--filesystem=xdg-config/autostart:create",
+        "--filesystem=xdg-data/liftoff:create",
         "--filesystem=host:ro"
     ],
     "cleanup" : [
@@ -26,6 +27,21 @@
         "*.a"
     ],
     "modules" : [
+        {
+            "name" : "squashfs-tools",
+            "buildsystem" : "simple",
+            "build-commands" : [
+                "make -C squashfs-tools -j$FLATPAK_BUILDER_N_JOBS GZIP_SUPPORT=1 XZ_SUPPORT=1 LZO_SUPPORT=0 LZ4_SUPPORT=1 ZSTD_SUPPORT=1 XATTR_SUPPORT=0 unsquashfs",
+                "install -Dm755 squashfs-tools/unsquashfs /app/bin/unsquashfs"
+            ],
+            "sources" : [
+                {
+                    "type" : "archive",
+                    "url" : "https://github.com/plougher/squashfs-tools/archive/refs/tags/4.6.1.tar.gz",
+                    "sha256" : "9c4974e07c61547dae14af4ed1f358b7d04618ae194e54d6be72ee126f0d2f53"
+                }
+            ]
+        },
         {
             "name" : "liftoff",
             "builddir" : true,

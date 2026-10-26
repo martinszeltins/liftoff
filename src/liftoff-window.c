@@ -1,5 +1,6 @@
 #include "config.h"
 #include "liftoff-window.h"
+#include "liftoff-appimage.h"
 #include <glib/gi18n.h>
 #include <sys/stat.h>
 
@@ -11,6 +12,7 @@ struct _LiftoffWindow
 	GtkEntry            *name_entry;
 	GtkEntry            *exec_entry;
 	GtkEntry            *icon_entry;
+	GtkImage            *icon_preview;
 	GtkEntry            *categories_entry;
 	GtkEntry            *wmclass_entry;
 	GtkButton           *icon_button;
@@ -19,7 +21,13 @@ struct _LiftoffWindow
 	AdwSwitchRow        *startup_switch;
 
 	char                *executable_path;
+	char                *icon_source;
+	GCancellable        *icon_cancellable;
+	guint                extract_generation;
 	gboolean             wmclass_user_edited;
+	gboolean             icon_user_set;
+	gboolean             setting_icon;
+	gboolean             closing;
 };
 
 G_DEFINE_FINAL_TYPE (LiftoffWindow, liftoff_window, ADW_TYPE_APPLICATION_WINDOW)
@@ -36,6 +44,7 @@ static GParamSpec *properties [N_PROPS];
 static void on_icon_selected (GObject      *source,
                                GAsyncResult *result,
                                gpointer      user_data);
+static void liftoff_window_maybe_extract_icon (LiftoffWindow *self);
 
 static void
 update_preview (LiftoffWindow *self)
@@ -105,6 +114,29 @@ update_preview (LiftoffWindow *self)
 }
 
 static void
+update_icon_preview (LiftoffWindow *self)
+{
+	const char *path;
+	g_autoptr(GError) error = NULL;
+	g_autoptr(GdkTexture) texture = NULL;
+
+	path = gtk_editable_get_text (GTK_EDITABLE (self->icon_entry));
+	if (path != NULL && path[0] != '\0' && g_file_test (path, G_FILE_TEST_IS_REGULAR))
+		texture = gdk_texture_new_from_filename (path, &error);
+
+	if (texture != NULL)
+	{
+		gtk_image_set_from_paintable (self->icon_preview, GDK_PAINTABLE (texture));
+		gtk_widget_set_visible (GTK_WIDGET (self->icon_preview), TRUE);
+	}
+	else
+	{
+		gtk_image_clear (self->icon_preview);
+		gtk_widget_set_visible (GTK_WIDGET (self->icon_preview), FALSE);
+	}
+}
+
+static void
 on_entry_changed (GtkEditable *editable,
                   gpointer     user_data)
 {
@@ -122,6 +154,16 @@ on_entry_changed (GtkEditable *editable,
 	{
 		self->wmclass_user_edited = TRUE;
 	}
+
+	if (GTK_EDITABLE (editable) == GTK_EDITABLE (self->icon_entry))
+	{
+		if (!self->setting_icon)
+			self->icon_user_set = TRUE;
+		update_icon_preview (self);
+	}
+
+	if (GTK_EDITABLE (editable) == GTK_EDITABLE (self->exec_entry))
+		liftoff_window_maybe_extract_icon (self);
 	
 	update_preview (self);
 }
@@ -184,6 +226,187 @@ setup_exec_field (LiftoffWindow *self)
 		gtk_editable_set_text (GTK_EDITABLE (self->name_entry), basename);
 		g_free (basename);
 	}
+}
+
+typedef struct
+{
+	char *path;
+	guint generation;
+} IconExtractData;
+
+static void
+icon_extract_data_free (gpointer data)
+{
+	IconExtractData *info = data;
+
+	g_free (info->path);
+	g_free (info);
+}
+
+static void
+liftoff_window_cancel_icon_extract (LiftoffWindow *self)
+{
+	self->extract_generation++;
+	if (self->icon_cancellable != NULL)
+		g_cancellable_cancel (self->icon_cancellable);
+}
+
+static char *
+command_to_path (const char *command)
+{
+	g_autofree char *copy = NULL;
+	char *end;
+	char *space;
+	char quote;
+
+	if (command == NULL)
+		return NULL;
+
+	copy = g_strdup (command);
+	g_strstrip (copy);
+	if (copy[0] == '\0')
+		return NULL;
+
+	if (g_file_test (copy, G_FILE_TEST_IS_REGULAR))
+		return g_steal_pointer (&copy);
+
+	quote = copy[0];
+	if (quote == '"' || quote == '\'')
+	{
+		end = strchr (copy + 1, quote);
+		if (end != NULL)
+		{
+			g_autofree char *quoted = NULL;
+
+			quoted = g_strndup (copy + 1, (gsize) (end - (copy + 1)));
+			if (g_file_test (quoted, G_FILE_TEST_IS_REGULAR))
+				return g_steal_pointer (&quoted);
+		}
+
+		return NULL;
+	}
+
+	space = strchr (copy, ' ');
+	if (space != NULL)
+	{
+		g_autofree char *first = NULL;
+
+		first = g_strndup (copy, (gsize) (space - copy));
+		if (g_file_test (first, G_FILE_TEST_IS_REGULAR))
+			return g_steal_pointer (&first);
+	}
+
+	return NULL;
+}
+
+static void
+extract_icon_thread (GTask        *task,
+                     gpointer      source_object,
+                     gpointer      task_data,
+                     GCancellable *cancellable)
+{
+	IconExtractData *info = task_data;
+	g_autoptr(GError) error = NULL;
+	g_autofree char *data_dir = NULL;
+	g_autofree char *dest_dir = NULL;
+	char *icon;
+
+	(void) source_object;
+
+	data_dir = liftoff_host_data_dir ();
+	dest_dir = g_build_filename (data_dir, "liftoff", "icons", NULL);
+	icon = liftoff_appimage_extract_icon (info->path, dest_dir, cancellable, &error);
+	if (icon == NULL)
+	{
+		if (error == NULL)
+			g_set_error (&error, G_IO_ERROR, G_IO_ERROR_FAILED, "Could not extract icon");
+		g_task_return_error (task, g_steal_pointer (&error));
+		return;
+	}
+
+	g_task_return_pointer (task, icon, g_free);
+}
+
+static void
+on_icon_extract_done (GObject      *source,
+                      GAsyncResult *result,
+                      gpointer      user_data)
+{
+	LiftoffWindow *self = LIFTOFF_WINDOW (source);
+	IconExtractData *info = g_task_get_task_data (G_TASK (result));
+	g_autoptr(GError) error = NULL;
+	g_autofree char *icon_path = NULL;
+
+	(void) user_data;
+
+	icon_path = g_task_propagate_pointer (G_TASK (result), &error);
+
+	if (self->closing || info->generation != self->extract_generation || self->icon_user_set)
+		return;
+
+	if (icon_path == NULL)
+	{
+		if (error != NULL &&
+		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED) &&
+		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND) &&
+		    !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED))
+			g_warning ("Could not extract AppImage icon: %s", error->message);
+		return;
+	}
+
+	self->setting_icon = TRUE;
+	gtk_editable_set_text (GTK_EDITABLE (self->icon_entry), icon_path);
+	self->setting_icon = FALSE;
+}
+
+static void
+liftoff_window_extract_icon_async (LiftoffWindow *self,
+                                   const char    *path)
+{
+	IconExtractData *info;
+	GTask *task;
+
+	liftoff_window_cancel_icon_extract (self);
+	g_clear_object (&self->icon_cancellable);
+	self->icon_cancellable = g_cancellable_new ();
+
+	info = g_new0 (IconExtractData, 1);
+	info->path = g_strdup (path);
+	info->generation = self->extract_generation;
+
+	task = g_task_new (self, self->icon_cancellable, on_icon_extract_done, NULL);
+	g_task_set_task_data (task, info, icon_extract_data_free);
+	g_task_run_in_thread (task, extract_icon_thread);
+	g_object_unref (task);
+}
+
+static void
+liftoff_window_maybe_extract_icon (LiftoffWindow *self)
+{
+	const char *command;
+	g_autofree char *path = NULL;
+
+	if (self->icon_user_set || self->closing)
+		return;
+
+	command = gtk_editable_get_text (GTK_EDITABLE (self->exec_entry));
+	path = command_to_path (command);
+	if (path == NULL)
+		return;
+
+	if (g_strcmp0 (path, self->icon_source) == 0)
+		return;
+
+	g_free (self->icon_source);
+	self->icon_source = g_strdup (path);
+
+	if (!liftoff_path_is_appimage (path))
+	{
+		liftoff_window_cancel_icon_extract (self);
+		return;
+	}
+
+	liftoff_window_extract_icon_async (self, path);
 }
 
 static void
@@ -255,6 +478,8 @@ on_create_button_clicked (GtkButton *button,
 	char *desktop_dir, *filename, *filepath, *autostart_dir, *autostart_path;
 	char *sanitized_name;
 	char *msg;
+	char *data_home = NULL;
+	char *config_home = NULL;
 	AdwDialog *alert_dialog;
 	GError *error = NULL;
 	gboolean run_on_startup;
@@ -301,8 +526,9 @@ on_create_button_clicked (GtkButton *button,
 	
 	g_string_append (content, "Terminal=false\n");
 
-	/* Save to ~/.local/share/applications/ */
-	desktop_dir = g_build_filename (g_get_user_data_dir (), "applications", NULL);
+	/* Host paths stay visible to the desktop outside the Flatpak sandbox. */
+	data_home = liftoff_host_data_dir ();
+	desktop_dir = g_build_filename (data_home, "applications", NULL);
 	g_mkdir_with_parents (desktop_dir, 0755);
 
 	/* Create filename from wmclass if provided, otherwise from name */
@@ -334,7 +560,8 @@ on_create_button_clicked (GtkButton *button,
 		/* If run on startup is enabled, also create autostart file */
 		if (run_on_startup)
 		{
-			autostart_dir = g_build_filename (g_get_user_config_dir (), "autostart", NULL);
+			config_home = liftoff_host_config_dir ();
+			autostart_dir = g_build_filename (config_home, "autostart", NULL);
 			g_mkdir_with_parents (autostart_dir, 0755);
 			autostart_path = g_build_filename (autostart_dir, filename, NULL);
 			
@@ -364,6 +591,8 @@ on_create_button_clicked (GtkButton *button,
 	g_free (filename);
 	g_free (filepath);
 	g_free (sanitized_name);
+	g_free (data_home);
+	g_free (config_home);
 }
 
 LiftoffWindow *
@@ -414,11 +643,25 @@ liftoff_window_set_property (GObject      *object,
 }
 
 static void
+liftoff_window_dispose (GObject *object)
+{
+	LiftoffWindow *self = LIFTOFF_WINDOW (object);
+
+	self->closing = TRUE;
+	if (self->icon_cancellable != NULL)
+		g_cancellable_cancel (self->icon_cancellable);
+	g_clear_object (&self->icon_cancellable);
+
+	G_OBJECT_CLASS (liftoff_window_parent_class)->dispose (object);
+}
+
+static void
 liftoff_window_finalize (GObject *object)
 {
 	LiftoffWindow *self = LIFTOFF_WINDOW (object);
 
 	g_free (self->executable_path);
+	g_free (self->icon_source);
 
 	G_OBJECT_CLASS (liftoff_window_parent_class)->finalize (object);
 }
@@ -443,6 +686,7 @@ liftoff_window_class_init (LiftoffWindowClass *klass)
 
 	object_class->get_property = liftoff_window_get_property;
 	object_class->set_property = liftoff_window_set_property;
+	object_class->dispose = liftoff_window_dispose;
 	object_class->finalize = liftoff_window_finalize;
 	object_class->constructed = liftoff_window_constructed;
 
@@ -459,6 +703,7 @@ liftoff_window_class_init (LiftoffWindowClass *klass)
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, name_entry);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, exec_entry);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, icon_entry);
+	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, icon_preview);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, categories_entry);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, wmclass_entry);
 	gtk_widget_class_bind_template_child (widget_class, LiftoffWindow, icon_button);

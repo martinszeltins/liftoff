@@ -95,6 +95,16 @@
                                 <property name="spacing">12</property>
                                 <property name="margin-end">12</property>
                                 <child>
+                                  <object class="GtkImage" id="icon_preview">
+                                    <property name="visible">false</property>
+                                    <property name="pixel-size">48</property>
+                                    <property name="valign">center</property>
+                                    <style>
+                                      <class name="icon-dropshadow"/>
+                                    </style>
+                                  </object>
+                                </child>
+                                <child>
                                   <object class="GtkEntry" id="icon_entry">
                                     <property name="hexpand">true</property>
                                     <property name="placeholder-text" translatable="yes">Path to icon file...</property>
