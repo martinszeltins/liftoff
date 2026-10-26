@@ -1,0 +1,5 @@
+#!/bin/bash
+
+FILE_PATH=$(echo "$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS" | head -n1)
+
+flatpak run lv.martinsz.Liftoff "$FILE_PATH"
